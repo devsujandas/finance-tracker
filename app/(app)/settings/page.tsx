@@ -264,11 +264,14 @@ export default function SettingsPage() {
             <AlertDialogContent className="sm:max-w-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95">
               <AlertDialogHeader>
                 <div className="flex items-start gap-3">
-                  <TriangleAlert className="mt-0.5 h-5 w-5 text-destructive" aria-hidden="true" />
+                  <TriangleAlert size={32} className="text-destructive 
+                    h-[clamp(20px,4vw,32px)] 
+                    w-[clamp(20px,4vw,32px)]"
+                  />
                   <div>
                     <AlertDialogTitle className="text-pretty">Reset all data?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently delete all local data (settings, categories, accounts, transactions, and
+                      This will permanently delete all  data (settings, categories, accounts, transactions, and
                       budgets). This action cannot be undone.
                     </AlertDialogDescription>
                   </div>
@@ -279,7 +282,7 @@ export default function SettingsPage() {
                   <Button variant="outline">Cancel</Button>
                 </AlertDialogCancel>
                 <AlertDialogAction asChild>
-                  <Button variant="destructive" onClick={onResetAll}>
+                  <Button className="bg-[#ff0000] hover:bg-[#cc0000] text-white" onClick={onResetAll}>
                     Reset All Data
                   </Button>
                 </AlertDialogAction>
