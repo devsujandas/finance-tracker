@@ -8,9 +8,9 @@ import { SwRegister } from "@/components/pwa/sw-register"
 import { Suspense } from "react"
 
 export const metadata: Metadata = {
-  title: "Finance Tracker",
-  description: "A mobile-first, PWA-ready finance tracker front end.",
-  generator: "v0.app",
+  title: "Moneytany",
+  description: "PWA-ready finance app for seamless tracking.",
+  authors: [{ name: "Sujan Das" }],
   manifest: "/manifest.webmanifest",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },

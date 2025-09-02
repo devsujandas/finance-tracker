@@ -64,12 +64,12 @@ export default function Home() {
     <span className="block sm:hidden">
       Welcome to
       <br />
-      <span className="text-teal-500">Finance Tracker</span>
+      <span className="text-teal-500">Moneytany</span>
     </span>
 
     {/* Desktop */}
     <span className="hidden sm:block">
-      Welcome to <span className="text-teal-500">Finance Tracker</span>
+      Welcome to <span className="text-teal-500">Moneytany</span>
     </span>
   </h1>
 
