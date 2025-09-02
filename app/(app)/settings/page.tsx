@@ -23,10 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { TriangleAlert, CheckCircle2 } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
-
-const MotionButton = motion(Button)
+import { TriangleAlert, Loader2 } from "lucide-react"
 
 const currencies = ["USD", "EUR", "GBP", "JPY", "INR"]
 const locales = ["en-US", "en-GB", "de-DE", "fr-FR", "ja-JP"]
@@ -37,12 +34,12 @@ export default function SettingsPage() {
   const { toast } = useToast()
   const { theme, setTheme, resolvedTheme } = useTheme()
   const { settings, setSettings } = useSettings()
-
   const [mounted, setMounted] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [privacySaved, setPrivacySaved] = useState(false)
 
-  // Local form state mirrored from SWR settings
+  // ✅ prevent hydration mismatch
+  useEffect(() => setMounted(true), [])
+
+  // Local form state
   const [currency, setCurrency] = useState("USD")
   const [locale, setLocale] = useState("en-US")
   const [startOfWeek, setStartOfWeek] = useState<"monday" | "sunday">("monday")
@@ -53,17 +50,17 @@ export default function SettingsPage() {
   const [hideBalances, setHideBalances] = useState(false)
   const [enableChartDownloads, setEnableChartDownloads] = useState(false)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  // ✅ loader states
+  const [isSaving, setIsSaving] = useState(false)
+  const [isPrivacySaving, setIsPrivacySaving] = useState(false)
 
   useEffect(() => {
     if (settings) {
-      setCurrency(settings.currency)
-      setLocale(settings.locale)
-      setStartOfWeek(settings.startOfWeek)
-      setStartOfMonth(settings.startOfMonth)
-      setDensity(settings.density)
+      setCurrency(settings.currency ?? "USD")
+      setLocale(settings.locale ?? "en-US")
+      setStartOfWeek(settings.startOfWeek ?? "monday")
+      setStartOfMonth(settings.startOfMonth ?? 1)
+      setDensity(settings.density ?? "comfortable")
       const s = loadSettings()
       setAutoLockEnabled(!!(s as any)?.autoLockEnabled)
       setPin((s as any)?.pin ?? "")
@@ -72,55 +69,52 @@ export default function SettingsPage() {
     }
   }, [settings])
 
-  const onSave = () => {
-    const merged = {
-      ...(settings || {}),
-      currency,
-      locale,
-      startOfWeek,
-      startOfMonth: Math.max(1, Math.min(28, Number(startOfMonth) || 1)),
-      density,
-      theme: (theme as "light" | "dark" | "system") ?? "system",
-      autoLockEnabled,
-      pin: pin || undefined,
-      hideBalances,
-      enableChartDownloads,
-    } as any
-
-    saveSettings(merged)
-    setSettings(merged as any)
-    toast({ title: "Settings saved" })
-
-    // Animation trigger
-    setSaved(true)
-    setTimeout(() => setSaved(false), 1500)
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      const merged = {
+        ...(settings || {}),
+        currency,
+        locale,
+        startOfWeek,
+        startOfMonth: Math.max(1, Math.min(28, Number(startOfMonth) || 1)),
+        density,
+        theme: (theme as "light" | "dark" | "system") ?? "system",
+        autoLockEnabled,
+        pin: pin || undefined,
+        hideBalances,
+        enableChartDownloads,
+      }
+      saveSettings(merged)
+      setSettings(merged as any)
+      toast({ title: "Settings saved" })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const onSavePrivacy = () => {
-    const merged = {
-      ...(settings || {}),
-      autoLockEnabled,
-      pin: pin || undefined,
-      hideBalances,
-      enableChartDownloads,
-    } as any
-    saveSettings(merged)
-    setSettings(merged as any)
-    toast({ title: "Privacy settings saved" })
-
-    setPrivacySaved(true)
-    setTimeout(() => setPrivacySaved(false), 1500)
+  const handlePrivacySave = async () => {
+    setIsPrivacySaving(true)
+    try {
+      const merged = {
+        ...(settings || {}),
+        autoLockEnabled,
+        pin: pin || undefined,
+        hideBalances,
+        enableChartDownloads,
+      }
+      saveSettings(merged)
+      setSettings(merged as any)
+      toast({ title: "Privacy settings saved" })
+    } finally {
+      setIsPrivacySaving(false)
+    }
   }
 
   const onResetAll = () => {
     resetAllData()
     toast({ title: "All data cleared", description: "The app will reload with defaults." })
     window.location.reload()
-  }
-
-  if (!mounted) {
-    // Prevent hydration mismatch by rendering nothing until mounted
-    return <div className="p-6 text-muted-foreground">Loading settings...</div>
   }
 
   return (
@@ -135,22 +129,21 @@ export default function SettingsPage() {
         <div className="rounded-lg border p-4">
           <h2 className="mb-3 text-base font-medium">Appearance</h2>
           <div className="grid grid-cols-3 gap-2">
-            {(["light", "dark", "system"] as const).map((opt) => (
-              <MotionButton
-                key={opt}
-                type="button"
-                onClick={() => setTheme(opt)}
-                className={cn(
-                  "rounded-md border px-3 py-2 text-sm capitalize transition-colors",
-                  resolvedTheme === opt ? "border-primary text-primary" : "hover:bg-muted",
-                )}
-                aria-pressed={resolvedTheme === opt}
-                whileTap={{ scale: 0.9 }}
-                transition={{ duration: 0.15 }}
-              >
-                {opt}
-              </MotionButton>
-            ))}
+            {mounted &&
+              (["light", "dark", "system"] as const).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setTheme(opt)}
+                  className={cn(
+                    "rounded-md border px-3 py-2 text-sm capitalize transition-colors",
+                    resolvedTheme === opt ? "border-primary text-primary" : "hover:bg-muted",
+                  )}
+                  aria-pressed={resolvedTheme === opt}
+                >
+                  {opt}
+                </button>
+              ))}
           </div>
         </div>
 
@@ -240,23 +233,17 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Save Button with feedback */}
-          <div className="mt-4 flex items-center gap-2">
-            <MotionButton whileTap={{ scale: 0.9 }} transition={{ duration: 0.15 }} onClick={onSave}>
-              Save
-            </MotionButton>
-            <AnimatePresence>
-              {saved && (
-                <motion.div
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.5, opacity: 0 }}
-                  className="text-green-600 flex items-center gap-1 text-sm"
-                >
-                  <CheckCircle2 className="h-4 w-4" /> Saved
-                </motion.div>
+          <div className="mt-4">
+            <Button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2">
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save"
               )}
-            </AnimatePresence>
+            </Button>
           </div>
         </div>
 
@@ -292,23 +279,17 @@ export default function SettingsPage() {
               Enable “Download PNG” on charts
             </label>
           </div>
-
-          <div className="mt-4 flex items-center gap-2">
-            <MotionButton whileTap={{ scale: 0.9 }} transition={{ duration: 0.15 }} onClick={onSavePrivacy}>
-              Save Privacy
-            </MotionButton>
-            <AnimatePresence>
-              {privacySaved && (
-                <motion.div
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.5, opacity: 0 }}
-                  className="text-green-600 flex items-center gap-1 text-sm"
-                >
-                  <CheckCircle2 className="h-4 w-4" /> Saved
-                </motion.div>
+          <div className="mt-4">
+            <Button onClick={handlePrivacySave} disabled={isPrivacySaving} className="flex items-center gap-2">
+              {isPrivacySaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Privacy"
               )}
-            </AnimatePresence>
+            </Button>
           </div>
         </div>
 
@@ -333,40 +314,32 @@ export default function SettingsPage() {
           </p>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <MotionButton variant="destructive" whileTap={{ scale: 0.9 }} transition={{ duration: 0.15 }}>
-                Reset All Data
-              </MotionButton>
+              <Button variant="destructive">Reset All Data</Button>
             </AlertDialogTrigger>
             <AlertDialogContent className="sm:max-w-sm">
               <AlertDialogHeader>
                 <div className="flex items-start gap-3">
                   <TriangleAlert
-                    className="text-destructive h-[clamp(28px,6vw,48px)] w-[clamp(28px,6vw,48px)]"
+                    size={32}
+                    className="text-destructive h-[clamp(24px,5vw,40px)] w-[clamp(24px,5vw,40px)]"
                   />
                   <div>
                     <AlertDialogTitle className="text-pretty">Reset all data?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently delete all data (settings, categories, accounts, transactions, and
-                      budgets). This action cannot be undone.
+                      This will permanently delete all data (settings, categories, accounts, transactions, and budgets).
+                      This action cannot be undone.
                     </AlertDialogDescription>
                   </div>
                 </div>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel asChild>
-                  <MotionButton variant="outline" whileTap={{ scale: 0.9 }} transition={{ duration: 0.15 }}>
-                    Cancel
-                  </MotionButton>
+                  <Button variant="outline">Cancel</Button>
                 </AlertDialogCancel>
                 <AlertDialogAction asChild>
-                  <MotionButton
-                    className="bg-[#ff0000] hover:bg-[#cc0000] text-white"
-                    onClick={onResetAll}
-                    whileTap={{ scale: 0.9 }}
-                    transition={{ duration: 0.15 }}
-                  >
+                  <Button className="bg-[#ff0000] hover:bg-[#cc0000] text-white" onClick={onResetAll}>
                     Reset All Data
-                  </MotionButton>
+                  </Button>
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
