@@ -290,6 +290,7 @@ export default function TransactionsPage() {
           setOpen(false)
           setEditing(null)
           toast({ title: editing ? "Transaction updated" : "Transaction added" })
+          
         }}
       />
     </section>
