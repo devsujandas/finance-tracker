@@ -11,7 +11,7 @@ import { CategoryManager } from "@/components/settings/category-manager"
 import { useSettings } from "@/hooks/use-settings"
 import { ImportExportSection } from "@/components/data/import-export"
 import { SampleDataSection } from "@/components/data/sample-data"
-import { resetAllData, loadSettings, saveSettings } from "@/lib/storage" // add reset action
+import { resetAllData, loadSettings, saveSettings } from "@/lib/storage"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +23,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { TriangleAlert } from "lucide-react"
+import { TriangleAlert, CheckCircle2 } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+
+const MotionButton = motion(Button)
 
 const currencies = ["USD", "EUR", "GBP", "JPY", "INR"]
 const locales = ["en-US", "en-GB", "de-DE", "fr-FR", "ja-JP"]
@@ -32,19 +35,27 @@ const weekStarts = ["monday", "sunday"] as const
 
 export default function SettingsPage() {
   const { toast } = useToast()
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, resolvedTheme } = useTheme()
   const { settings, setSettings } = useSettings()
 
+  const [mounted, setMounted] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [privacySaved, setPrivacySaved] = useState(false)
+
   // Local form state mirrored from SWR settings
-  const [currency, setCurrency] = useState(settings?.currency ?? "USD")
-  const [locale, setLocale] = useState(settings?.locale ?? "en-US")
-  const [startOfWeek, setStartOfWeek] = useState(settings?.startOfWeek ?? "monday")
-  const [startOfMonth, setStartOfMonth] = useState<number>(settings?.startOfMonth ?? 1)
-  const [density, setDensity] = useState(settings?.density ?? "comfortable")
-  const [autoLockEnabled, setAutoLockEnabled] = useState<boolean>(!!(settings as any)?.autoLockEnabled)
-  const [pin, setPin] = useState<string>((settings as any)?.pin ?? "")
-  const [hideBalances, setHideBalances] = useState<boolean>(!!(settings as any)?.hideBalances)
-  const [enableChartDownloads, setEnableChartDownloads] = useState<boolean>(!!(settings as any)?.enableChartDownloads)
+  const [currency, setCurrency] = useState("USD")
+  const [locale, setLocale] = useState("en-US")
+  const [startOfWeek, setStartOfWeek] = useState<"monday" | "sunday">("monday")
+  const [startOfMonth, setStartOfMonth] = useState<number>(1)
+  const [density, setDensity] = useState<"comfortable" | "compact">("comfortable")
+  const [autoLockEnabled, setAutoLockEnabled] = useState(false)
+  const [pin, setPin] = useState("")
+  const [hideBalances, setHideBalances] = useState(false)
+  const [enableChartDownloads, setEnableChartDownloads] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (settings) {
@@ -62,15 +73,32 @@ export default function SettingsPage() {
   }, [settings])
 
   const onSave = () => {
-    // Persist to storage with extended fields
     const merged = {
       ...(settings || {}),
       currency,
       locale,
-      startOfWeek: startOfWeek as "monday" | "sunday",
+      startOfWeek,
       startOfMonth: Math.max(1, Math.min(28, Number(startOfMonth) || 1)),
-      density: density as "comfortable" | "compact",
+      density,
       theme: (theme as "light" | "dark" | "system") ?? "system",
+      autoLockEnabled,
+      pin: pin || undefined,
+      hideBalances,
+      enableChartDownloads,
+    } as any
+
+    saveSettings(merged)
+    setSettings(merged as any)
+    toast({ title: "Settings saved" })
+
+    // Animation trigger
+    setSaved(true)
+    setTimeout(() => setSaved(false), 1500)
+  }
+
+  const onSavePrivacy = () => {
+    const merged = {
+      ...(settings || {}),
       autoLockEnabled,
       pin: pin || undefined,
       hideBalances,
@@ -78,13 +106,21 @@ export default function SettingsPage() {
     } as any
     saveSettings(merged)
     setSettings(merged as any)
-    toast({ title: "Settings saved" })
+    toast({ title: "Privacy settings saved" })
+
+    setPrivacySaved(true)
+    setTimeout(() => setPrivacySaved(false), 1500)
   }
 
   const onResetAll = () => {
     resetAllData()
     toast({ title: "All data cleared", description: "The app will reload with defaults." })
     window.location.reload()
+  }
+
+  if (!mounted) {
+    // Prevent hydration mismatch by rendering nothing until mounted
+    return <div className="p-6 text-muted-foreground">Loading settings...</div>
   }
 
   return (
@@ -100,18 +136,20 @@ export default function SettingsPage() {
           <h2 className="mb-3 text-base font-medium">Appearance</h2>
           <div className="grid grid-cols-3 gap-2">
             {(["light", "dark", "system"] as const).map((opt) => (
-              <button
+              <MotionButton
                 key={opt}
                 type="button"
                 onClick={() => setTheme(opt)}
                 className={cn(
                   "rounded-md border px-3 py-2 text-sm capitalize transition-colors",
-                  theme === opt ? "border-primary text-primary" : "hover:bg-muted",
+                  resolvedTheme === opt ? "border-primary text-primary" : "hover:bg-muted",
                 )}
-                aria-pressed={theme === opt}
+                aria-pressed={resolvedTheme === opt}
+                whileTap={{ scale: 0.9 }}
+                transition={{ duration: 0.15 }}
               >
                 {opt}
-              </button>
+              </MotionButton>
             ))}
           </div>
         </div>
@@ -120,6 +158,7 @@ export default function SettingsPage() {
         <div className="rounded-lg border p-4">
           <h2 className="mb-3 text-base font-medium">Preferences</h2>
           <div className="grid grid-cols-1 gap-4">
+            {/* Currency */}
             <div className="grid gap-2">
               <Label htmlFor="currency">Currency</Label>
               <select
@@ -136,6 +175,7 @@ export default function SettingsPage() {
               </select>
             </div>
 
+            {/* Locale */}
             <div className="grid gap-2">
               <Label htmlFor="locale">Locale</Label>
               <select
@@ -152,6 +192,7 @@ export default function SettingsPage() {
               </select>
             </div>
 
+            {/* Start of week */}
             <div className="grid gap-2">
               <Label htmlFor="start-of-week">Start of week</Label>
               <select
@@ -168,6 +209,7 @@ export default function SettingsPage() {
               </select>
             </div>
 
+            {/* Start of month */}
             <div className="grid gap-2">
               <Label htmlFor="start-of-month">Start of month (1–28)</Label>
               <Input
@@ -180,6 +222,7 @@ export default function SettingsPage() {
               />
             </div>
 
+            {/* Density */}
             <div className="grid gap-2">
               <Label htmlFor="density">Density</Label>
               <select
@@ -197,8 +240,23 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="mt-4">
-            <Button onClick={onSave}>Save</Button>
+          {/* Save Button with feedback */}
+          <div className="mt-4 flex items-center gap-2">
+            <MotionButton whileTap={{ scale: 0.9 }} transition={{ duration: 0.15 }} onClick={onSave}>
+              Save
+            </MotionButton>
+            <AnimatePresence>
+              {saved && (
+                <motion.div
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.5, opacity: 0 }}
+                  className="text-green-600 flex items-center gap-1 text-sm"
+                >
+                  <CheckCircle2 className="h-4 w-4" /> Saved
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -208,7 +266,7 @@ export default function SettingsPage() {
           <div className="space-y-3">
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={autoLockEnabled} onChange={(e) => setAutoLockEnabled(e.target.checked)} />
-              Enable Auto‑Lock (requires PIN to unlock on return)
+              Enable Auto-Lock (requires PIN to unlock on return)
             </label>
             <div className="grid gap-2">
               <Label htmlFor="pin">PIN</Label>
@@ -234,8 +292,23 @@ export default function SettingsPage() {
               Enable “Download PNG” on charts
             </label>
           </div>
-          <div className="mt-4">
-            <Button onClick={onSave}>Save Privacy</Button>
+
+          <div className="mt-4 flex items-center gap-2">
+            <MotionButton whileTap={{ scale: 0.9 }} transition={{ duration: 0.15 }} onClick={onSavePrivacy}>
+              Save Privacy
+            </MotionButton>
+            <AnimatePresence>
+              {privacySaved && (
+                <motion.div
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.5, opacity: 0 }}
+                  className="text-green-600 flex items-center gap-1 text-sm"
+                >
+                  <CheckCircle2 className="h-4 w-4" /> Saved
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -252,6 +325,7 @@ export default function SettingsPage() {
           <SampleDataSection />
         </div>
 
+        {/* Danger Zone */}
         <div className="rounded-lg border p-4">
           <h2 className="mb-3 text-base font-medium text-destructive">Danger Zone</h2>
           <p className="mb-3 text-sm text-muted-foreground">
@@ -259,19 +333,20 @@ export default function SettingsPage() {
           </p>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive">Reset All Data</Button>
+              <MotionButton variant="destructive" whileTap={{ scale: 0.9 }} transition={{ duration: 0.15 }}>
+                Reset All Data
+              </MotionButton>
             </AlertDialogTrigger>
-            <AlertDialogContent className="sm:max-w-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95">
+            <AlertDialogContent className="sm:max-w-sm">
               <AlertDialogHeader>
                 <div className="flex items-start gap-3">
-                  <TriangleAlert size={32} className="text-destructive 
-                    h-[clamp(20px,4vw,32px)] 
-                    w-[clamp(20px,4vw,32px)]"
+                  <TriangleAlert
+                    className="text-destructive h-[clamp(28px,6vw,48px)] w-[clamp(28px,6vw,48px)]"
                   />
                   <div>
                     <AlertDialogTitle className="text-pretty">Reset all data?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently delete all  data (settings, categories, accounts, transactions, and
+                      This will permanently delete all data (settings, categories, accounts, transactions, and
                       budgets). This action cannot be undone.
                     </AlertDialogDescription>
                   </div>
@@ -279,12 +354,19 @@ export default function SettingsPage() {
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel asChild>
-                  <Button variant="outline">Cancel</Button>
+                  <MotionButton variant="outline" whileTap={{ scale: 0.9 }} transition={{ duration: 0.15 }}>
+                    Cancel
+                  </MotionButton>
                 </AlertDialogCancel>
                 <AlertDialogAction asChild>
-                  <Button className="bg-[#ff0000] hover:bg-[#cc0000] text-white" onClick={onResetAll}>
+                  <MotionButton
+                    className="bg-[#ff0000] hover:bg-[#cc0000] text-white"
+                    onClick={onResetAll}
+                    whileTap={{ scale: 0.9 }}
+                    transition={{ duration: 0.15 }}
+                  >
                     Reset All Data
-                  </Button>
+                  </MotionButton>
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
